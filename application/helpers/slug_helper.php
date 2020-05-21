@@ -22,7 +22,7 @@ if ( !function_exists('slug')) {
         $string = preg_replace("/\s+/", " ", $string);
         $string = preg_replace("/\s/", $replace, $string);
         $string = preg_replace("/[\/_|+ -]+/", $replace, $string);
-        return $result;
+        return $string;
 	}
 }
 

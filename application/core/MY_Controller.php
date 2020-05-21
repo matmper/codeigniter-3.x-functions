@@ -67,7 +67,7 @@ class MY_Controller extends CI_Controller {
 }
 
 /* CLASS - SESSION */
-class MY_Admin extends MY_Controller {
+class MY_Session extends MY_Controller {
     
     public function __construct() {
         parent::__construct();
