@@ -1,4 +1,5 @@
-<?php  if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
 
 /*
 * Created by github.com/matmper
@@ -13,9 +14,10 @@
  * @param $replace (default "-")
  * @return string without accents, spaces and special characters
  */
-if ( !function_exists('slug')) {
-	function slug($string, $replace = '-') {
-		$string = remove_accents($string);
+if (!function_exists('slug')) {
+    function slug($string, $replace = '-')
+    {
+        $string = remove_accents($string);
         $string = strtolower($string);
         $string = trim($string);
         $string = preg_replace("/[^a-z0-9\s-]/", "", $string);
@@ -23,7 +25,7 @@ if ( !function_exists('slug')) {
         $string = preg_replace("/\s/", $replace, $string);
         $string = preg_replace("/[\/_|+ -]+/", $replace, $string);
         return $string;
-	}
+    }
 }
 
 /**
@@ -31,11 +33,13 @@ if ( !function_exists('slug')) {
  * @param $string
  * @return string without accents
  */
-if ( !function_exists('remove_accent') ) {	
-    function remove_accents($string) {
+if (!function_exists('remove_accent')) {
+    function remove_accents($string)
+    {
 
-        if ( !preg_match('/[\x80-\xff]/', $string) )
+        if (!preg_match('/[\x80-\xff]/', $string)) {
             return $string;
+        }
 
         $arr_chars = [
             chr(195).chr(128) => 'A', chr(195).chr(129) => 'A',
@@ -135,7 +139,6 @@ if ( !function_exists('remove_accent') ) {
         $string = strtr($string, $arr_chars);
 
         return $string;
-
     }
 
 }

@@ -1,4 +1,5 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed');
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
 * Created by github.com/matmper
@@ -12,12 +13,10 @@
 // $limit       = $limit (1) || $limit, $offset (1,0)
 // $order_by    = array (['id' => 'ASC']) || string ('id ASC')
 
-/**
-
-- - - - - - - - - - - - - - - - - - - - - - - - 
+/*
 
 YOUR CONSTRUCT MODEL EXAMPLE:
- 
+
 public function __construct() {
     $this->table                = 'table_name';
     $this->primary_key          = 'id';
@@ -27,7 +26,7 @@ public function __construct() {
 // Start other database connection with this (before parent)
 * $this->database             = 'db_name';
 
-- - - - - - - - - - - - - - - - - - - - - - - - 
+- - - - - - - - - - - - - - - - - - - - - - - -
 
 Insert Data:
 $this->name_model->insert(['name' => 'Teste']);
@@ -57,65 +56,58 @@ $this->name_model->delete_soft(2);
 $this->name_model->delete_soft('all');
 $this->name_model->delete_soft(['id >=', 2]);
 
-- - - - - - - - - - - - - - - - - - - - - - - - 
+- - - - - - - - - - - - - - - - - - - - - - - -
 
 */
 
 class MY_Model extends CI_Model
 {
+    public $database = false;
+    public $table = false;
+    public $primary_key = 'id';
 
-    public $database            = FALSE;
-    public $table               = FALSE;
-    public $primary_key         = 'id';
+    public $_timestamps = true;
+    public $_timestamps_format = 'Y-m-d H:i:s';
 
-    public $_timestamps         = TRUE;
-    public $_timestamps_format  = 'Y-m-d H:i:s';
+    public $_created_at = 'created_at';
+    public $_updated_at = 'updated_at';
+    public $_deleted_at = 'deleted_at';
 
-    public $_created_at         = 'created_at';
-    public $_updated_at         = 'updated_at';
-    public $_deleted_at         = 'deleted_at';
+    public $_select = '*';
 
-    public $_select             = '*';
-
-    public $_result             = 'object'; //object or array
+    public $_result = 'object'; //object or array
 
     public function __construct()
     {
-
         parent::__construct();
-        $this->_db              = $this->private_set_conn();
-
+        $this->_db = $this->private_set_conn();
     }
 
     /*
     */
-    public function insert($data)
+    public function insert(array $data)
     {
-
-        if( is_array($data) && count($data) > 0 ) {
-
+        if (!empty($data)) {
             $this->private_timestamp(true, false, false);
             $this->_db->insert($this->table, $data);
 
-            if( $this->_db->affected_rows() > 0 ) {
+            if ($this->_db->affected_rows() > 0) {
                 return $this->_db->insert_id();
-            } else return false;
+            }
+        }
 
-        } else return false;
-
+        return null;
     }
 
     /*
     */
-    public function get($where = false, $order_by = false)
+    public function get(?array $where = null, $order_by = null)
     {
-
         $this->private_where($where);
         $this->private_order_by($order_by);
         $this->private_limit(1);
        
         return $this->private_get('row');
-
     }
 
     /*
@@ -128,68 +120,62 @@ class MY_Model extends CI_Model
         $this->private_limit($limit, $offset);
 
         return $this->private_get('result');
-
     }
 
     /*
     */
-    public function update($data, $where = false) {
-
-        if( $this->private_where_count($where) ) {
-
+    public function update($data, $where = false)
+    {
+        if ($this->private_where_count($where)) {
             $this->private_where($where);
 
             $this->private_timestamp(false, true, false);
             $this->_db->update($this->table, $data);
 
-            if( $this->_db->affected_rows() > 0 ) {
+            if ($this->_db->affected_rows() > 0) {
                 return $this->_db->affected_rows();
-            } else return false;
-
+            }
         }
 
+        return null;
     }
 
     /*
     */
     public function delete($where = false)
     {
-
-        if( $this->private_where_count($where) ) {
-
+        if ($this->private_where_count($where)) {
             $this->private_where($where);
 
             $this->_db->delete($this->table);
 
-            if( $this->db->affected_rows() > 0 ) {
+            if ($this->db->affected_rows() > 0) {
                 return $this->db->affected_rows();
-            } else return false;
+            }
+        }
 
-        } else return false;
-
+        return null;
     }
 
     /*
     */
     public function delete_soft($where = false)
     {
-
-        if( $this->private_where_count($where) ) {
-
+        if ($this->private_where_count($where)) {
             $this->private_where($where);
 
             $this->private_timestamp(false, true, true);
             $this->_db->update($this->table);
 
-            if( $this->db->affected_rows() > 0 ) {
+            if ($this->db->affected_rows() > 0) {
                 return $this->db->affected_rows();
-            } else return false;
+            }
+        }
 
-        } else return false;
-
+        return null;
     }
 
-    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     //
     // P R I V A T E S
     //
@@ -197,14 +183,12 @@ class MY_Model extends CI_Model
 
     public function private_get($type = 'result')
     {
-
         $this->_db->select($this->_select);
         $this->_db->from($this->table);
 
         $query = $this->_db->get();
 
-        if( $query->num_rows() > 0 ) {
-
+        if ($query->num_rows() > 0) {
             switch ($this->_result) {
                 case 'array':
                     return $type == 'row' ? $query->row_array() : $query->result_array();
@@ -213,9 +197,9 @@ class MY_Model extends CI_Model
                     return $type == 'row' ? $query->row() : $query->result();
                 break;
             }
+        }
 
-        } else return false;
-
+        return null;
     }
 
     /**
@@ -224,30 +208,26 @@ class MY_Model extends CI_Model
     */
     private function private_where($where)
     {
-
-        if( is_numeric($where) && $where > 0 ) {
-
+        if (is_numeric($where) && $where > 0) {
             return $this->_db->where($this->primary_key, $where);
-
-        } else if( is_array($where) && count($where) > 0 ) {
-
+        } elseif (is_array($where) && count($where) > 0) {
             return $this->_db->where($where);
+        }
 
-        } else return false;
-
+        return null;
     }
 
     /*
     * private function private_where_count
     * validate if where is array or numeric or is 'all'
     */
-    private function private_where_count($where)
+    private function private_where_count($where): bool
     {
-
-        if( $where == 'all' || $where > 0 || (is_array($where) && count($where) > 0 )) {
+        if ($where == 'all' || $where > 0 || (is_array($where) && count($where) > 0 )) {
             return true;
-        } else return false;
+        }
 
+        return false;
     }
 
     /*
@@ -256,17 +236,13 @@ class MY_Model extends CI_Model
     */
     private function private_limit($limit, $offset = false)
     {
-
-        if( $limit > 0 && $offset > 0 ) {
-
+        if ($limit > 0 && $offset > 0) {
             return $this->_db->limit($limit, $offset);
-
-        } else if( $limit > 0 ) {
-
+        } elseif ($limit > 0) {
             return $this->_db->limit($limit);
+        }
 
-        } else return false;
-
+        return null;
     }
 
     /*
@@ -275,20 +251,15 @@ class MY_Model extends CI_Model
     */
     private function private_order_by($order_by)
     {
-
-        if( is_array($order_by) && count($order_by) > 0 ) {
-
-            foreach ($order_by as $key => $value)
+        if (is_array($order_by) && count($order_by) > 0) {
+            foreach ($order_by as $key => $value) {
                 $this->_db->order_by($key, $value);
-
-        } else if( is_string($order_by) ) {
-
+            }
+        } elseif (is_string($order_by)) {
             $this->_db->order_by($order_by);
-
         }
 
         return true;
-
     }
 
     /**
@@ -297,24 +268,25 @@ class MY_Model extends CI_Model
     */
     private function private_timestamp($created_at, $updated_at, $deleted_at)
     {
-
-        if( $this->_timestamps ) {
-
+        if ($this->_timestamps) {
             $now = date($this->_timestamps_format);
 
-            if( $created_at )
+            if ($created_at) {
                 $this->_db->set($this->_created_at, $now);
+            }
 
-            if( $updated_at )
+            if ($updated_at) {
                 $this->_db->set($this->_updated_at, $now);
+            }
 
-            if( $deleted_at )
+            if ($deleted_at) {
                 $this->_db->set($this->_deleted_at, $now);
+            }
 
             return true;
+        }
 
-        } else return false;
-
+        return null;
     }
 
 
@@ -324,13 +296,10 @@ class MY_Model extends CI_Model
      */
     private function private_set_conn()
     {
-
-        if( isset($this->database) && $this->database ) {
-            return $this->load->database($this->database, TRUE);
-        } else {
-            return $this->db;
+        if (isset($this->database) && $this->database) {
+            return $this->load->database($this->database, true);
         }
-
+        
+        return $this->db;
     }
-
 }

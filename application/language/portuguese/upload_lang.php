@@ -1,13 +1,14 @@
 <?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
 /**
  * System messages translation for CodeIgniter(tm)
  *
- * @author	CodeIgniter community
- * @copyright	Copyright (c) 2014 - 2015, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
+ * @author  CodeIgniter community
+ * @copyright   Copyright (c) 2014 - 2015, British Columbia Institute of Technology (http://bcit.ca/)
+ * @license http://opensource.org/licenses/MIT  MIT License
+ * @link    http://codeigniter.com
  */
-defined('BASEPATH') OR exit('No direct script access allowed');
 
 $lang['upload_userfile_not_set'] = 'Não foi possível encontrar a variável post chamada userfile.';
 $lang['upload_file_exceeds_limit'] = 'O arquivo excedeu o tamanho máximo permitido de upload em seu arquivo de configuração do PHP.';
