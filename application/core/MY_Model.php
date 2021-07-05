@@ -11,20 +11,19 @@ defined('BASEPATH') or exit('No direct script access allowed');
 // $data        = array
 // $where       = int || array || string ('all')
 // $limit       = $limit (1) || $limit, $offset (1,0)
-// $order_by    = array (['id' => 'ASC']) || string ('id ASC')
+// $orderBy     = array (['id' => 'ASC']) || string ('id ASC')
 
 /*
 
 YOUR CONSTRUCT MODEL EXAMPLE:
 
 public function __construct() {
-    $this->table                = 'table_name';
-    $this->primary_key          = 'id';
+    $this->database = 'default';
+    $this->table = 'table_name';
+    $this->primaryKey = 'id';
+    $this->softDelete = true; // default is false
     parent::__construct();
 }
-
-// Start other database connection with this (before parent)
-* $this->database             = 'db_name';
 
 - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -32,29 +31,31 @@ Insert Data:
 $this->name_model->insert(['name' => 'Teste']);
 
 Get Row:
-$this->name_model->get(1);
-$this->name_model->get(['name' => 'Teste'], ['name' => 'DESC']);
-$this->name_model->get(['name' => 'Teste'], ['name DESC']);
+$this->name_model->first();
+$this->name_model->first(1);
+$this->name_model->first(['name' => 'Teste'], ['name' => 'DESC']);
+$this->name_model->first(['name' => 'Teste'], ['name DESC']);
 
 Get Result:
-$this->name_model->get_all(['id >=', 2]);
-$this->name_model->get_all(['id >=', 2], ['name' => 'DESC'], {limit}, {offset});
-$this->name_model->get_all(false, ['name DESC'], {limit}, {offset});
+$this->name_model->get();
+$this->name_model->get(['id >=', 2]);
+$this->name_model->get(['id >=', 2], ['name' => 'DESC'], {limit}, {offset});
+$this->name_model->get(false, ['name DESC'], {limit}, {offset});
 
 Update Data:
 $this->name_model->insert(['name' => 'Teste'], 1);
 $this->name_model->insert(['name' => 'Teste'], ['id' => 1]);
 $this->name_model->insert(['name' => 'Teste'], 'all');
 
-Delete:
+Delete - Use soft delete if "$this->_softDelete = true":
 $this->name_model->delete(2);
 $this->name_model->delete('all');
 $this->name_model->delete(['id >=', 2]);
 
-Delete (Soft) - Require "deleted_at" field:
-$this->name_model->delete_soft(2);
-$this->name_model->delete_soft('all');
-$this->name_model->delete_soft(['id >=', 2]);
+Delete - Delete forever from yout database
+$this->name_model->delete_hard(2);
+$this->name_model->delete_hard('all');
+$this->name_model->delete_hard(['id >=', 2]);
 
 - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -62,20 +63,21 @@ $this->name_model->delete_soft(['id >=', 2]);
 
 class MY_Model extends CI_Model
 {
-    public $database = false;
-    public $table = false;
-    public $primary_key = 'id';
+    protected ?string $database = null;
+    protected ?string $table = null;
+    protected ?string $primaryKey = 'id';
 
-    public $_timestamps = true;
-    public $_timestamps_format = 'Y-m-d H:i:s';
+    protected bool $_timestamps = true;
+    protected bool $_softDelete = false;
+    protected string $_timestampsFormat = 'Y-m-d H:i:s';
 
-    public $_created_at = 'created_at';
-    public $_updated_at = 'updated_at';
-    public $_deleted_at = 'deleted_at';
+    protected string $_createdAt = 'created_at';
+    protected string $_updatedAt = 'updated_at';
+    protected string $_deletedAt = 'deleted_at';
 
-    public $_select = '*';
+    protected string $_select = '*';
 
-    public $_result = 'object'; //object or array
+    protected string $_result = 'default'; // default, object or array
 
     public function __construct()
     {
@@ -83,96 +85,120 @@ class MY_Model extends CI_Model
         $this->_db = $this->private_set_conn();
     }
 
-    /*
-    */
-    public function insert(array $data)
-    {
-        if (!empty($data)) {
-            $this->private_timestamp(true, false, false);
-            $this->_db->insert($this->table, $data);
-
-            if ($this->_db->affected_rows() > 0) {
-                return $this->_db->insert_id();
-            }
-        }
-
-        return null;
-    }
-
-    /*
-    */
-    public function get(?array $where = null, $order_by = null)
+    /**
+     * Get a row
+     *
+     * @param mixed $where
+     * @param mixed $orderBy
+     * @return null|object|array
+     */
+    public function first($where = null, $orderBy = null)
     {
         $this->private_where($where);
-        $this->private_order_by($order_by);
+        $this->private_order_by($orderBy);
         $this->private_limit(1);
        
         return $this->private_get('row');
     }
 
-    /*
-    */
-    public function get_all($where = false, $order_by = false, $limit = false, $offset = false)
+    /**
+     * Get many rows
+     *
+     * @param mixed     $where
+     * @param mixed     $orderBy
+     * @param int|null  $limit
+     * @param int|null  $offset
+     * @return null|object|array
+     */
+    public function get($where = null, $orderBy = null, ?int $limit = null, ?int $offset = null)
     {
-
         $this->private_where($where);
-        $this->private_order_by($order_by);
+        $this->private_order_by($orderBy);
         $this->private_limit($limit, $offset);
 
         return $this->private_get('result');
     }
 
-    /*
-    */
-    public function update($data, $where = false)
+    /**
+     * Insert a new row
+     *
+     * @param array $data
+     * @return integer|null
+     */
+    public function insert(array $data): ?int
     {
-        if ($this->private_where_count($where)) {
-            $this->private_where($where);
+        if (empty($data)) {
+            return null;
+        }
 
-            $this->private_timestamp(false, true, false);
-            $this->_db->update($this->table, $data);
+        $this->private_timestamp(true, false, false);
+        $this->_db->insert($this->table, $data);
 
-            if ($this->_db->affected_rows() > 0) {
-                return $this->_db->affected_rows();
-            }
+        if ($this->_db->affected_rows() > 0) {
+            return $this->_db->insert_id();
         }
 
         return null;
     }
 
-    /*
-    */
-    public function delete($where = false)
+    /**
+     * Update rows
+     *
+     * @param array $data
+     * @param mixed $where
+     * @return integer|null
+     */
+    public function update(array $data, $where): ?int
     {
-        if ($this->private_where_count($where)) {
-            $this->private_where($where);
+        $this->private_where_validate($where);
 
-            $this->_db->delete($this->table);
+        $this->private_where($where);
 
-            if ($this->db->affected_rows() > 0) {
-                return $this->db->affected_rows();
-            }
-        }
+        $this->private_timestamp(false, true, false);
 
-        return null;
+        $this->_db->update($this->table, $data);
+
+        return $this->_db->affected_rows() ?: null;
     }
 
-    /*
-    */
-    public function delete_soft($where = false)
+    /**
+     * Delete a row (can use soft delete)
+     *
+     * @param mixed $where
+     * @return int|null
+     */
+    public function delete($where): ?int
     {
-        if ($this->private_where_count($where)) {
-            $this->private_where($where);
-
-            $this->private_timestamp(false, true, true);
-            $this->_db->update($this->table);
-
-            if ($this->db->affected_rows() > 0) {
-                return $this->db->affected_rows();
-            }
+        if ($this->_softDelete === false) {
+            return $this->delete_hard($where);
         }
 
-        return null;
+        $this->private_where_validate($where);
+        
+        $this->private_where($where);
+
+        $this->private_timestamp(false, false, true);
+
+        $this->_db->update($this->table);
+
+        return $this->_db->affected_rows() ?: null;
+    }
+
+    /**
+     * Delete a row forever
+     *
+     * @param mixed $where
+     * @return int|null
+     */
+    public function delete_hard($where): ?int
+    {
+        $this->private_where_validate($where);
+
+        $this->private_where($where);
+
+        $this->_db->delete($this->table);
+
+        return $this->_db->affected_rows() ?: null;
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -181,125 +207,213 @@ class MY_Model extends CI_Model
     //
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    public function private_get($type = 'result')
+    private function private_get(string $type = 'result')
     {
-        $this->_db->select($this->_select);
-        $this->_db->from($this->table);
+        $this->__type = $type;
 
-        $query = $this->_db->get();
+        $this->__query = $this->_db->select($this->_select)
+            ->from($this->table)
+            ->get();
 
-        if ($query->num_rows() > 0) {
-            switch ($this->_result) {
-                case 'array':
-                    return $type == 'row' ? $query->row_array() : $query->result_array();
-                break;
-                default:
-                    return $type == 'row' ? $query->row() : $query->result();
-                break;
-            }
-        }
-
-        return null;
+        return $this->private_get_type();
     }
 
     /**
-    * private function private_where
-    * define where conditions
-    */
-    private function private_where($where)
+     * Return query result (object or array)
+     *
+     * @return object|array
+     */
+    private function private_get_type()
     {
-        if (is_numeric($where) && $where > 0) {
-            return $this->_db->where($this->primary_key, $where);
-        } elseif (is_array($where) && count($where) > 0) {
+        $return = $this->__type === 'row'
+            ? $this->__query->row()
+            : $this->__query->result();
+
+        switch ($this->_result) {
+            case 'array':
+                $return = json_decode(json_encode($return), true);
+                // $return = $this->__type === 'row'
+                //     ? $this->__query->row_array()
+                //     : $this->__query->result_array();
+                break;
+            case 'object':
+                $return = (object) $return;
+                // $return = $this->__type === 'row'
+                //     ? $this->__query->row_object()
+                //     : $this->__query->result_object();
+                break;
+        }
+
+        if ($this->__type === 'row' && empty($return)) {
+            return null;
+        }
+
+        return $return;
+    }
+
+    /**
+     * Validate where conditions
+     *
+     * @param mixed $where
+     * @return object|null
+     */
+    private function private_where($where): ?object
+    {
+        if ($this->_softDelete !== false) {
+            $this->_db->where("{$this->_deletedAt} IS NULL", null, false);
+        }
+
+        if (is_int($where) && !empty($where)) {
+            return $this->_db->where($this->primaryKey, $where);
+        }
+        
+        if (is_array($where) && !empty($where)) {
             return $this->_db->where($where);
         }
 
         return null;
     }
 
-    /*
-    * private function private_where_count
-    * validate if where is array or numeric or is 'all'
-    */
-    private function private_where_count($where): bool
+    /**
+     * Validate if where is valid and can be used
+     *
+     * @param mixed $where
+     * @return boolean
+     */
+    private function private_where_validate($where): bool
     {
-        if ($where == 'all' || $where > 0 || (is_array($where) && count($where) > 0 )) {
+        if (!empty($where) && ($where === 'all' || is_int($where) || is_array($where))) {
             return true;
         }
 
-        return false;
+        return $this->set_error('The "where" conditions provided are invalid', true);
     }
 
-    /*
-    * private function private_limit
-    * set limit and offset to query
-    */
-    private function private_limit($limit, $offset = false)
+    /**
+     * private function private_limit to set limit and offset to query
+     *
+     * @param integer|null $limit
+     * @param integer|null $offset
+     * @return object|null
+     */
+    private function private_limit(?int $limit, ?int $offset = null): ?object
     {
-        if ($limit > 0 && $offset > 0) {
+        if ($limit > 0) {
             return $this->_db->limit($limit, $offset);
-        } elseif ($limit > 0) {
-            return $this->_db->limit($limit);
         }
 
         return null;
     }
 
-    /*
-    * private function private_limit
-    * set order by and offset to query
-    */
-    private function private_order_by($order_by)
+    /**
+     * Private function private_limit to set order by and offset to query
+     *
+     * @param array|string $orderBy
+     * @return object|null
+     */
+    private function private_order_by($orderBy): ?object
     {
-        if (is_array($order_by) && count($order_by) > 0) {
-            foreach ($order_by as $key => $value) {
+        if (is_array($orderBy) && !empty($orderBy)) {
+            foreach ($orderBy as $key => $value) {
                 $this->_db->order_by($key, $value);
             }
-        } elseif (is_string($order_by)) {
-            $this->_db->order_by($order_by);
+        }
+        
+        if (is_string($orderBy) && !empty($orderBy)) {
+            return $this->_db->order_by($orderBy);
         }
 
-        return true;
+        return null;
     }
 
     /**
-    * private function private_timestamp
-    * set datetime field
-    */
-    private function private_timestamp($created_at, $updated_at, $deleted_at)
+     * Private function private_timestamp to set datetime field
+     *
+     * @param boolean $created_at
+     * @param boolean $updated_at
+     * @param boolean $deleted_at
+     * @return void
+     */
+    private function private_timestamp(bool $created_at, bool $updated_at, bool $deleted_at): void
     {
         if ($this->_timestamps) {
-            $now = date($this->_timestamps_format);
+            $now = date($this->_timestampsFormat);
 
             if ($created_at) {
-                $this->_db->set($this->_created_at, $now);
+                $this->_db->set($this->_createdAt, $now);
             }
 
             if ($updated_at) {
-                $this->_db->set($this->_updated_at, $now);
+                $this->_db->set($this->_updatedAt, $now);
             }
 
-            if ($deleted_at) {
-                $this->_db->set($this->_deleted_at, $now);
+            if ($this->_softDelete !== false && $deleted_at) {
+                $this->_db->set($this->_deletedAt, $now);
             }
-
-            return true;
         }
-
-        return null;
     }
 
-
     /**
-     * private function private_set_conn()
-     * Change and set a the connection to $this->db
+     * Set a database connection
+     *
+     * @return void
      */
-    private function private_set_conn()
+    private function private_set_conn(): object
     {
-        if (isset($this->database) && $this->database) {
+        if (isset($this->database)) {
             return $this->load->database($this->database, true);
         }
         
         return $this->db;
+    }
+
+    /**
+     * Explode a exception
+     *
+     * @param string    $message
+     * @param boolean   $forceException
+     * @return Exception|null
+     */
+    private function set_error(string $message, bool $forceException = false): ?Exception
+    {
+        if (ENVIRONMENT === 'development' || $forceException !== false) {
+            throw new Exception($message);
+        }
+
+        return null;
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    //
+    // H E L P E R S
+    //
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    /**
+     * Prepare data to select specific fields
+     *
+     * @param string $value
+     * @return object
+     */
+    public function select(string $value = '*'): object
+    {
+        $this->_select = $value ?: $this->_select;
+        return $this;
+    }
+
+    /**
+     * Prepare data to select specific fields
+     *
+     * @param string $value
+     * @return object
+     */
+    public function result(string $value = 'default'): object
+    {
+        if (!in_array($value, ['default', 'object', 'array'])) {
+            return $this->set_error('Your result type must be "object" or "array"');
+        }
+
+        $this->_result = $value;
+        return $this;
     }
 }
